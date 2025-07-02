@@ -1,6 +1,10 @@
 import os
 import pandas as pd
 import openpyxl
+import ast
+import matplotlib.pyplot as plt
+%matplotlib inline
+import seaborn as sns
 
 
 def calcular_percentual_sono(peso, altura, duracao_sono, lista_atividade,nivel_de_estresse):
@@ -33,9 +37,8 @@ def cadastro(dados,proximo_id):
 
   for i in range(qtd):
 
-    #nome=input("Informe seu nome: ")
+    
     idade=int(input("Informe sua idade: "))
-    #genero=str(input("Informe seu genero: "))
     altura=float(input("Informe sua altura: "))
     peso=float(input("Informe seu peso: "))
 
@@ -124,13 +127,13 @@ def salvar_dados_em_excel(caminho_excel, dados):
     for registro in dados.values():
       dado =registro.copy()
 
- # Se o percentual vem como tupla (ex: (85.0, 'Boa')), separa em dois campos
+
       if isinstance(dado.get("percentual_de_saude_do_sono"), tuple):
             percentual, classificacao = dado["percentual_de_saude_do_sono"]
             dado["percentual_de_saude_do_sono"] = percentual
             dado["classificacao"] = classificacao
 
-        # Converte lista de atividades físicas para string
+       
       if isinstance(dado.get("atividade_fisica"), list):
             atividades = dado["atividade_fisica"]
             dado["atividade_fisica"] = "; ".join([f"Dia {a['dia']}: {a['minutos']} min" for a in atividades])
@@ -143,7 +146,6 @@ def salvar_dados_em_excel(caminho_excel, dados):
 
 
 
-# Variáveis do caminho dos arquivos
 CAMINHO_TXT = "Relacao_saude_sono.txt"
 CAMINHO_EXCEL = "Relacao_saude_sono.xlsx"
 
@@ -166,6 +168,23 @@ mostrar_dados()
 
 arquivo=pd.read_excel(r'C:\Users\Windows\Documents\estudo larissa\Criando projeto\Relação entre saude e sono\Relacao_saude_sono.xlsx')
 
+def processar_atividade(atividade_str):
+    try:
+        atividade = ast.literal_eval(atividade_str)
+        if isinstance(atividade, list):
+            dias = len(atividade)
+            media = sum([d['minutos'] for d in atividade]) / dias if dias > 0 else 0
+            return dias, media
+    except:
+        pass
+    return 0, 0
+
+arquivo[['dias_atividade', 'media_minutos']] = arquivo['atividade_fisica'].apply(
+    lambda x: pd.Series(processar_atividade(x))
+)
+
+arquivo = arquivo.drop(columns=['atividade_fisica'])
+
 arquivo.head()
 
 arquivo['classificacao'] = arquivo['classificacao'].replace('Boa',1)
@@ -174,28 +193,29 @@ arquivo['classificacao'] = arquivo['classificacao'].replace('Ruim',-1)
 
 arquivo['classificacao'] = arquivo['classificacao'].replace('Regular',0)
 
+arquivo
+
 y = arquivo['classificacao']
 x = arquivo.drop('classificacao',axis =1)
 
-x = pd.get_dummies(x)
+x 
+#verifique a quantidade de informação
+y.shape
 
 from sklearn.model_selection import train_test_split
 
 x_treino, x_teste, y_treino, y_teste =train_test_split(x,y, test_size =0.3)
 
 
-#vai rodar o algoritmo vai rodar em cima dos dados de treino
+y_teste.shape
+
+
 from sklearn.ensemble import ExtraTreesClassifier #arma de decisão
-#criação do modelo:
-modelo = ExtraTreesClassifier()#algoritmo de classificação
-#vai aplicar nos dados
+modelo = ExtraTreesClassifier()
 modelo.fit(x_treino, y_treino)
 
 
-resultado = modelo.score(x_teste, y_teste) #o y tem os dados real o x ele verificar conforme os dados do y
-#a função score vai pegar a coluna de dados de teste vai comparar x_teste com o y_teste,que a classificação real
-#vai usar a coluna de teste vai passar pelo algoritmo e o algoritmo como ele ja aprendeu, ele vai
-#tentar prever qual é a classe e verificar e esta certo ou não
+resultado = modelo.score(x_teste, y_teste) 
 print("Acuarácia:",resultado)
 
 x_teste
@@ -207,5 +227,49 @@ x_teste[10:13]
 previsoes =modelo.predict(x_teste[10:13])
 
 previsoes
-    
 
+
+cores = arquivo['classificacao'].map({1: 'green', 0: 'orange', -1: 'red'})
+
+plt.figure(figsize=(10, 6))
+plt.scatter(arquivo['idade'], arquivo['duracao_do_sono_em_horas'], c=cores)
+plt.title('Duração do Sono por Idade (Cor por Classificação)')
+plt.xlabel('Idade')
+plt.ylabel('Duração do Sono (horas)')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+
+arquivo['IMC'] = arquivo['peso'] / (arquivo['altura'] ** 2)
+dados_ordenados = arquivo.sort_values(by='IMC')
+plt.figure(figsize=(10, 6))
+plt.plot(dados_ordenados['IMC'], dados_ordenados['duracao_do_sono_em_horas'], marker='o', linestyle='-')
+plt.title('Duração do Sono em Função do IMC')
+plt.xlabel('IMC')
+plt.ylabel('Duração do Sono (horas)')
+plt.grid(True)
+plt.tight_layout()
+plt.show()
+
+media_sono_idade = arquivo.groupby('idade')['duracao_do_sono_em_horas'].mean()
+
+plt.figure(figsize=(10, 6))
+media_sono_idade.plot(kind='bar', color='skyblue')
+plt.title('Média da Duração do Sono por Idade')
+plt.xlabel('Idade')
+plt.ylabel('Duração Média do Sono (horas)')
+plt.grid(axis='y')
+plt.tight_layout()
+plt.show()
+
+sns.set(style="whitegrid")
+
+
+plt.figure(figsize=(12, 5))
+sns.countplot(data=arquivo, x='idade', hue='classificacao', palette='Set2')
+plt.title('Qualidade do Sono por Idade')
+plt.xlabel('Idade')
+plt.ylabel('Quantidade de Pessoas')
+plt.legend(title='Classificação')
+plt.show()
