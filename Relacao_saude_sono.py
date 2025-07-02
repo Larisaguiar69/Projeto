@@ -199,7 +199,8 @@ y = arquivo['classificacao']
 x = arquivo.drop('classificacao',axis =1)
 
 x 
-#verifique a quantidade de informação
+
+
 y.shape
 
 from sklearn.model_selection import train_test_split
